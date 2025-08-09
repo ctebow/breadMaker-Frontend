@@ -1,0 +1,490 @@
+// Assist in making a connections graph. 
+
+  // ok new bts connection logic, hopefully this is better with a more structured approach:
+  function isSamePoint(p1x, p1y, p2x, p2y) {
+    return p1x === p2x && p1y === p2y;
+  }
+  
+  function getWireAlignment(wire) {
+    if (wire.y1 === wire.y2) return "x";
+    if (wire.x1 === wire.x2) return "y";
+    else return "d"; // for diagonal. 
+  }
+
+  function hasComponentConnected(point, componentIds) {
+    // Helper to check if two points are exactly the same
+    function isSamePoint(x1, y1, x2, y2) {
+      return x1 === x2 && y1 === y2;
+    }
+  
+    // Iterate over all components
+    for (const compId in componentIds) {
+      const comp = componentIds[compId];
+      if (!comp.snapPoints) continue;
+  
+      for (const sp of comp.snapPoints) {
+        if (isSamePoint(point.x, point.y, sp.x, sp.y)) {
+          return true; // wire connects to this component at a snap point
+        }
+      }
+      
+    }
+  
+    return false; // no connection found
+  }
+  
+  function mergeCornerWires(wires, componentIds) {
+    const wiresCopy = wires.map(w => ({ ...w }));
+    const usedIndices = new Set();
+    const mergedWires = [];
+  
+    const allEndpoints = [];
+    wiresCopy.forEach((wire, idx) => {
+      allEndpoints.push({ x: wire.x1, y: wire.y1, wireIndex: idx });
+      allEndpoints.push({ x: wire.x2, y: wire.y2, wireIndex: idx });
+    });
+  
+    function countWiresAtPoint(x, y) {
+      const pointKey = (px, py) => `${px},${py}`;
+      const wireIndices = new Set();
+      for (const ep of allEndpoints) {
+        if (ep.x === x && ep.y === y) {
+          wireIndices.add(ep.wireIndex);
+        }
+      }
+      return wireIndices.size;
+    }
+  
+    for (let i = 0; i < wiresCopy.length; i++) {
+      if (usedIndices.has(i)) continue;
+      const wireA = wiresCopy[i];
+      const alignA = getWireAlignment(wireA);
+  
+      let merged = false;
+  
+      for (let j = i + 1; j < wiresCopy.length; j++) {
+        if (usedIndices.has(j)) continue;
+        const wireB = wiresCopy[j];
+        const alignB = getWireAlignment(wireB);
+  
+        if (alignA === alignB && alignA !== "d") continue; // skip if ||
+  
+        const endpointsA = [
+          { x: wireA.x1, y: wireA.y1 },
+          { x: wireA.x2, y: wireA.y2 },
+        ];
+        const endpointsB = [
+          { x: wireB.x1, y: wireB.y1 },
+          { x: wireB.x2, y: wireB.y2 },
+        ];
+  
+        let sharedPoint = null;
+        let otherA = null;
+        let otherB = null;
+  
+        outer: for (const pA of endpointsA) {
+          for (const pB of endpointsB) {
+            if (isSamePoint(pA.x, pA.y, pB.x, pB.y)) {
+              sharedPoint = pA;
+              otherA = endpointsA.find(p => !isSamePoint(p.x, p.y, sharedPoint.x, sharedPoint.y));
+              otherB = endpointsB.find(p => !isSamePoint(p.x, p.y, sharedPoint.x, sharedPoint.y));
+              break outer;
+            }
+          }
+        }
+  
+        if (!sharedPoint) continue; // No shared endpoint, no corner
+  
+        // **Check if exactly two wires share the sharedPoint endpoint**
+        const wiresSharingPointCount = countWiresAtPoint(sharedPoint.x, sharedPoint.y);
+        if (wiresSharingPointCount !== 2) continue;
+  
+        if (alignA === "x") {
+          if (wireA.y1 !== sharedPoint.y || wireB.x1 !== sharedPoint.x) continue;
+        } else if (alignA === "y") {
+          if (wireA.x1 !== sharedPoint.x || wireB.y1 !== sharedPoint.y) continue;
+        } else if (hasComponentConnected(sharedPoint, componentIds)) continue;
+
+        const newWire = {
+          ...wireA, // preserve extras from wireA if any
+          x1: otherA.x,
+          y1: otherA.y,
+          x2: otherB.x,
+          y2: otherB.y,
+        };
+  
+        mergedWires.push(newWire);
+        usedIndices.add(i);
+        usedIndices.add(j);
+        merged = true;
+        break;
+      }
+  
+      if (!merged && !usedIndices.has(i)) {
+        mergedWires.push(wireA);
+      }
+    }
+  
+    return mergedWires;
+  }
+  
+  function mergeCornerWiresFully(wires, componentIds, maxIterations = 10) {
+    let prevLength = 0;
+    let currentWires = wires;
+    let iteration = 0;
+  
+    do {
+      prevLength = currentWires.length;
+      currentWires = mergeCornerWires(currentWires, componentIds);
+      iteration++;
+    } while (currentWires.length < prevLength && iteration < maxIterations);
+  
+    return currentWires;
+  }
+  
+  
+
+  function getNodes(wires, componentIds) {
+
+    const endpointMap = new Map();
+  
+    function key(x, y) {
+      return `${x},${y}`;
+    }
+  
+    // Add wire endpoints
+    wires.forEach((wire, index) => {
+      const startKey = key(wire.x1, wire.y1);
+      if (!endpointMap.has(startKey)) endpointMap.set(startKey, { wires: new Set(), components: new Set(), x: wire.x1, y: wire.y1 });
+      endpointMap.get(startKey).wires.add(index);
+  
+      const endKey = key(wire.x2, wire.y2);
+      if (!endpointMap.has(endKey)) endpointMap.set(endKey, { wires: new Set(), components: new Set(), x: wire.x2, y: wire.y2 });
+      endpointMap.get(endKey).wires.add(index);
+    });
+  
+    // Add component snap points
+    for (const compId in componentIds) {
+      const comp = componentIds[compId];
+      if (!comp.snapPoints) continue;
+      for (const sp of comp.snapPoints) {
+        const spKey = key(sp.x, sp.y);
+        if (!endpointMap.has(spKey)) {
+          endpointMap.set(spKey, { wires: new Set(), components: new Set(), x: sp.x, y: sp.y });
+        }
+        endpointMap.get(spKey).components.add(compId);
+      }
+    }
+
+    const nodesMap = new Map();
+    let nodeCount = 0;
+  
+    for (const [point, data] of endpointMap.entries()) {
+      const wireCount = data.wires.size;
+      const compCount = data.components.size;
+  
+      if (wireCount + compCount >= 3) { // old wireCount >= 3 || compCount >= 3
+        nodesMap.set(`node${nodeCount++}`, { x: data.x, y: data.y });
+      }
+    }
+  
+    // Convert to plain object
+    const result = {};
+    for (const [id, coord] of nodesMap.entries()) {
+      result[id] = coord;
+    }
+  
+    return result;
+  }
+
+  export function getConnectionsGraph(wires, componentIds) {
+    const connectedWires = mergeCornerWiresFully(wires, componentIds);
+    console.log("Wires I calcuated", connectedWires)
+    const nodes = getNodes(connectedWires, componentIds);
+    console.log("Nodes I calculated", nodes)
+  
+    const coordKey = (x, y) => `${x},${y}`;
+  
+    // Map node coordinate => nodeId
+    const nodeCoordToId = new Map();
+    for (const nodeId in nodes) {
+      const n = nodes[nodeId];
+      nodeCoordToId.set(coordKey(n.x, n.y), nodeId);
+    }
+  
+    // Map snap point coord => list of component IDs sharing that snap point
+    const snapPointToComponentIds = new Map();
+    for (const compId in componentIds) {
+      const comp = componentIds[compId];
+      if (!comp.snapPoints) continue;
+      for (const sp of comp.snapPoints) {
+        const key = coordKey(sp.x, sp.y);
+        if (!snapPointToComponentIds.has(key)) snapPointToComponentIds.set(key, []);
+        snapPointToComponentIds.get(key).push(compId);
+      }
+    }
+  
+    // Include any new nodes formed by 3+ components sharing the same snap point
+    // Add those as nodes to the nodes object & nodeCoordToId map
+    for (const [key, compList] of snapPointToComponentIds.entries()) {
+      if (compList.length >= 3 && !nodeCoordToId.has(key)) {
+        // Add a new node ID, e.g. 'nodeX'
+        const newNodeId = `node_${nodeCoordToId.size + Object.keys(nodes).length}`;
+        const [x, y] = key.split(",").map(Number);
+        nodes[newNodeId] = { x, y };
+        nodeCoordToId.set(key, newNodeId);
+      }
+    }
+  
+    // Build graph: initialize entries for components and nodes
+    const graph = {};
+    for (const compId in componentIds) {
+      graph[compId] = { name: componentIds[compId].name, connections: [] };
+    }
+    for (const nodeId in nodes) {
+      graph[nodeId] = { name: nodeId, connections: [] };
+    }
+  
+    function connect(a, b) {
+      if (!graph[a] || !graph[b]) return;
+      if (!graph[a].connections.includes(b)) graph[a].connections.push(b);
+      if (!graph[b].connections.includes(a)) graph[b].connections.push(a);
+    }
+  
+    // Connect wires to nodes/components
+    connectedWires.forEach((wire) => {
+      const endpoints = [
+        { x: wire.x1, y: wire.y1 },
+        { x: wire.x2, y: wire.y2 },
+      ];
+  
+      const endpointEntities = endpoints.map(({ x, y }) => {
+        const key = coordKey(x, y);
+        if (nodeCoordToId.has(key)) return nodeCoordToId.get(key);
+        // If node not found, check if exactly one component snap point matches
+        if (snapPointToComponentIds.has(key)) {
+          const comps = snapPointToComponentIds.get(key);
+          if (comps.length === 1) return comps[0];
+          // If multiple components share this snap point but no node - return null to avoid ambiguity
+          return null;
+        }
+        return null;
+      });
+  
+      if (
+        endpointEntities[0] &&
+        endpointEntities[1] &&
+        endpointEntities[0] !== endpointEntities[1]
+      ) {
+        connect(endpointEntities[0], endpointEntities[1]);
+      }
+    });
+  
+    // Now handle direct component-to-component connections:
+    // For every snap point shared by >= 2 components, connect those components together
+    for (const [key, compList] of snapPointToComponentIds.entries()) {
+      if (compList.length >= 2) {
+        for (let i = 0; i < compList.length; i++) {
+          for (let j = i + 1; j < compList.length; j++) {
+            connect(compList[i], compList[j]);
+          }
+        }
+      }
+    }
+    // handle direct component-node connections.
+    for (const nodeId in nodes) {
+        const node = nodes[nodeId];
+        const nodeKey = coordKey(node.x, node.y);
+        if (snapPointToComponentIds.has(nodeKey)) {
+          const compsAtNode = snapPointToComponentIds.get(nodeKey);
+          for (const compId of compsAtNode) {
+            connect(nodeId, compId);
+          }
+        }
+      }
+  
+    return graph;
+  }
+  
+  export function simplifyConnectionsGraph(connectionsGraph) {
+    const simplified = {};
+  
+    for (const id in connectionsGraph) {
+      const entry = connectionsGraph[id];
+      simplified[id] = {
+        name: entry.name,
+        connections: entry.connections.map(connId => connectionsGraph[connId]?.name || connId)
+      };
+    }
+  
+    return simplified;
+  }
+  
+/* Utlities for merging parallel wires */
+
+  function normalize(wire) {
+    // Return new normalized wire with endpoints sorted from low to high on main axis
+    if (wire.x1 === wire.x2) {
+      // vertical wire, sort by y
+      if (wire.y1 > wire.y2) {
+        return { x1: wire.x1, y1: wire.y2, x2: wire.x2, y2: wire.y1 };
+      }
+    } else if (wire.y1 === wire.y2) {
+      // horizontal wire, sort by x
+      if (wire.x1 > wire.x2) {
+        return { x1: wire.x2, y1: wire.y1, x2: wire.x1, y2: wire.y2 };
+      }
+    } else {
+      // diagonal or invalid wire, return as-is
+      return wire;
+    }
+    return wire;
+  }
+
+const GRID_SIZE = 10;
+
+function snapToGrid(value, size = GRID_SIZE) {
+  return Math.round(value / size) * size;
+}
+  
+
+  
+  function wireOnAnother(wire1, wire2) {
+    wire1 = normalize(wire1);
+    wire2 = normalize(wire2);
+  
+    const a1 = getWireAlignment(wire1);
+    const a2 = getWireAlignment(wire2);
+  
+    if (!a1 || !a2) return false; // at least one wire is diagonal or invalid
+    if (a1 !== a2) return false;  // not parallel
+  
+    if (a1 === "y") {
+      // vertical wires must have same x
+      if (wire1.x1 !== wire2.x1) return false;
+  
+      // check if y intervals overlap or touch at endpoints
+      return !(wire1.y2 < wire2.y1 || wire1.y1 > wire2.y2);
+    }
+  
+    if (a1 === "x") {
+      // horizontal wires must have same y
+      if (wire1.y1 !== wire2.y1) return false;
+  
+      // check if x intervals overlap or touch at endpoints
+      return !(wire1.x2 < wire2.x1 || wire1.x1 > wire2.x2);
+    }
+  
+    return false;
+  }
+  
+
+function mergeParallelWires(wires) {
+    // Normalize all wires first for easier merging
+    wires.forEach(normalize);
+
+    let merged = [...wires];
+    let didMerge = true;
+
+    while (didMerge) {
+        didMerge = false;
+        outer: for (let i = 0; i < merged.length; i++) {
+            for (let j = i + 1; j < merged.length; j++) {
+                console.log("wireOnAnother=", wireOnAnother(merged[i], merged[j]))
+                console.log("for wires", merged[i], merged[j])
+                if (wireOnAnother(merged[i], merged[j])) {
+                    // Merge them into a new wire spanning the max range
+                    const a = getWireAlignment(merged[i]);
+                    const wireA = normalize(merged[i]);
+                    const wireB = normalize(merged[j]);
+                    let newWire;
+                    if (a === "x") {
+                    newWire = {
+                        x1: Math.min(wireA.x1, wireB.x1),
+                        y1: wireA.y1, // both horizontal, so y1 == y2
+                        x2: Math.max(wireA.x2, wireB.x2),
+                        y2: wireA.y2,
+                    };
+                    } else { // vertical
+                    newWire = {
+                        x1: wireA.x1, // both vertical, so x1 == x2
+                        y1: Math.min(wireA.y1, wireB.y1),
+                        x2: wireA.x2,
+                        y2: Math.max(wireA.y2, wireB.y2),
+                    };
+                    }
+
+                    newWire.x3 = snapToGrid((newWire.x1 + newWire.x2) / 2);
+                    newWire.y3 = snapToGrid((newWire.y1 + newWire.y2) / 2);
+
+                    // Replace both with merged, restart search
+                    merged.splice(j, 1);
+                    merged.splice(i, 1, newWire);
+                    didMerge = true;
+                    break outer;
+                }
+            }
+        }
+    }
+
+    return merged;
+}
+
+function splitWiresAtMidpoints(wires, componentIds) {
+    const result = [];
+  
+    for (const wire of wires) {
+      const midpoint = { x: wire.x3, y: wire.y3 };
+      const hasMidpointConnection = wires.some(otherWire => {
+        if (otherWire === wire) return false; // skip self
+        const connectsAtMidpoint =
+          (otherWire.x1 === midpoint.x && otherWire.y1 === midpoint.y) ||
+          (otherWire.x2 === midpoint.x && otherWire.y2 === midpoint.y);
+        return connectsAtMidpoint;
+      });
+
+      const hasComponentConnection = Object.values(componentIds).some(component => {
+        return component.snapPoints.some(snapPoint => 
+            snapToGrid(snapPoint.x) === snapToGrid(midpoint.x) && snapToGrid(snapPoint.y) === snapToGrid(midpoint.y)
+        );
+    });
+        console.log("component connected to wire midpoint?", hasComponentConnection)
+  
+      if (hasMidpointConnection || hasComponentConnection) {
+        const wirePart1 = {
+          x1: wire.x1,
+          y1: wire.y1,
+          x2: midpoint.x,
+          y2: midpoint.y,
+          x3: snapToGrid((wire.x1 + midpoint.x) / 2),
+          y3: snapToGrid((wire.y1 + midpoint.y) / 2),
+          startSnappedTo: wire.startSnappedTo,
+          endSnappedTo: null,  
+        };
+  
+        const wirePart2 = {
+          x1: midpoint.x,
+          y1: midpoint.y,
+          x2: wire.x2,
+          y2: wire.y2,
+          x3: snapToGrid((midpoint.x + wire.x2) / 2),
+          y3: snapToGrid((midpoint.y + wire.y2) / 2),
+          startSnappedTo: null,
+          endSnappedTo: wire.endSnappedTo,
+        };
+  
+        result.push(wirePart1, wirePart2);
+      } else {
+        result.push(wire);
+      }
+    }
+  
+    return result;
+  }
+
+  export function processWires(wires, componentIds) {
+    const merged = mergeParallelWires(wires);
+    const split = splitWiresAtMidpoints(merged, componentIds);
+    return split;
+}
+  
