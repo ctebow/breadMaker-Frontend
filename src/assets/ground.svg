@@ -1,7 +1,6 @@
 <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M42 15.3333H2" stroke="black" stroke-width="3.5" stroke-linecap="square"/>
-<path d="M22 2V15.3333" stroke="black" stroke-width="3.5" stroke-linecap="round"/>
-<path d="M22 28.6667V42" stroke="black" stroke-width="3.5" stroke-linecap="round"/>
-<path d="M35.3333 22H8.66663" stroke="black" stroke-width="3.5" stroke-linecap="square"/>
-<path d="M28.6667 28.6667H15.3334" stroke="black" stroke-width="3.5" stroke-linecap="square"/>
+<path d="M42 21.9999H2" stroke="black" stroke-width="3.5" stroke-linecap="square"/>
+<path d="M22 2V22" stroke="black" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M35.3333 32H8.66663" stroke="black" stroke-width="3.5" stroke-linecap="square"/>
+<path d="M28.6667 42H15.3334" stroke="black" stroke-width="3.5" stroke-linecap="square"/>
 </svg>

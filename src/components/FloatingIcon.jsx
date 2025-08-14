@@ -1,4 +1,4 @@
-import { useState, useEffect, act } from "react";
+import { useState, useEffect } from "react";
 import { getSnappedPosition } from "../utils/snapUtils"
 
 const GRID_SIZE = 10; 

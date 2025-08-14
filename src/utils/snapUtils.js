@@ -7,6 +7,37 @@ export const DIMENSIONS_MAP = {
     "diode": {x: 100, y: 40, invert: false},
     "switch": {x: 100, y: 40, invert: false},
     "wire": {x: 0, y: 0, invert: false},
+    "varistor": {x: 100, y: 40, invert: false},
+    "fuse": {x: 100, y: 40, invert: false},
+    "motor": {x: 100, y: 40, invert: false},
+    "diode-zenor": {x: 100, y: 40, invert: false},
+    "capacitor-polarized": {x: 40, y: 40, invert: true},
+    "current_source": {x: 100, y: 40, invert: false}
+}
+
+const SPECIAL_TYPES = { // dx/dy FROM CENTER
+    "crossover": {x: 40, y: 40, snapPoints: [{dx: -20, dy: 0}, {dx: 0, dy: 20}, {dx: 0, dy: -20}, {dx: 20, dy: 0}]},
+    "terminal-neg": {x: 40, y: 40, snapPoints: [{dx: 0, dy: -20}]},
+    "terminal-pos": {x: 40, y: 40, snapPoints: [{dx: 0, dy: 20}]},
+    "thyristor": {x: 100, y: 40, snapPoints: [{dx: -50, dy: 0}, {dx: 50, dy: 0}, {dx: 30, dy: 20}]},
+    "not": {x: 80, y: 40, snapPoints: [{dx: -40, dy: 0}, {dx: 40, dy: 0}]},
+    "or": {x: 80, y: 40, snapPoints: [{dx: -40, dy: -10}, {dx: -40, dy: 10}, {dx: 40, dy: 0}]},
+    "nor": {x: 80, y: 40, snapPoints: [{dx: -40, dy: -10}, {dx: -40, dy: 10}, {dx: 40, dy: 0}]},
+    "xor": {x: 80, y: 40, snapPoints: [{dx: -40, dy: -10}, {dx: -40, dy: 10}, {dx: 40, dy: 0}]},
+    "nand": {x: 80, y: 40, snapPoints: [{dx: -40, dy: -10}, {dx: -40, dy: 10}, {dx: 40, dy: 0}]},
+    "and": {x: 80, y: 40, snapPoints: [{dx: -40, dy: -10}, {dx: -40, dy: 10}, {dx: 40, dy: 0}]},
+    "opAmp": {x: 100, y: 100, snapPoints: [{dx: -50, dy: -30}, {dx: -50, dy: 30}, {dx: 0, dy: -50}, {dx: 0, dy: 50}, {dx: 50, dy: 0}]},
+    "resistor-photo": {x: 100, y: 100, snapPoints: [{dx: -50, dy: 0}, {dx: 50, dy: 0}]},
+    "transistor": {x: 80, y: 100, snapPoints: [{dx: -40, dy: 0}, {dx: 20, dy: -50}, {dx: 20, dy: 50}]},
+    "microphone": {x: 80, y: 100, snapPoints: [{dx: 0, dy: -50}, {dx: 0, dy: 50}]},
+    "transistor-photo": {x: 80, y: 100, snapPoints: [{dx: 20, dy: -50}, {dx: 20, dy: 50}]},
+    "transistor-PNP": {x: 80, y: 100, snapPoints: [{dx: -40, dy: 0}, {dx: 20, dy: -50}, {dx: 20, dy: 50}]},
+    "speaker": {x: 80, y: 100, snapPoints: [{dx: -10, dy: -50}, {dx: -10, dy: 50}]},
+    "diode-light_emitting": {x: 100, y: 80, snapPoints: [{dx: -50, dy: 0}, {dx: 50, dy: 0}]},
+    "transformer": {x: 80, y: 100, snapPoints: [{dx: -40, dy: -40}, {dx: -40, dy: 40}, {dx: 40, dy: -40}, {dx: 40, dy: 40}]},
+    "triac": {x: 100, y: 100, snapPoints: [{dx: 0, dy: -50}, {dx: 0, dy: 50}, {dx: 50, dy: 40}]},
+    "diac": {x: 100, y: 100, snapPoints: [{dx: 0, dy: -50}, {dx: 0, dy: 50}]},
+    "ground": {x: 40, y: 40, snapPoints: [{dx: 0, dy: -20}]},
 }
 
 const GRID_SIZE = 10;  // make sure it aligns with component dimensions
@@ -45,6 +76,20 @@ export function getSnapPoints(posX, posY, comp_type, comp_rotation, wire_coords 
 
 
         return points.length > 0 ? points : null;
+    } else if (comp_type in SPECIAL_TYPES) {
+        let result = [];
+        SPECIAL_TYPES[comp_type].snapPoints.forEach((point) => {
+
+            const angle = comp_rotation * Math.PI / 180;
+            // rotated around center of object. 
+            const rotatedX = point.dx * Math.cos(angle) - point.dy * Math.sin(angle);
+            const rotatedY = point.dx * Math.sin(angle) + point.dy * Math.cos(angle);
+
+
+            result.push({x: posX + rotatedX, y: posY + rotatedY});
+        });
+
+        return result;
     }
     
 

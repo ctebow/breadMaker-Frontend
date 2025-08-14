@@ -12,7 +12,35 @@ const TYPES_MAP = {
         "voltage-ac": "AC",
         "wire": "W",
         "diode": "D",
-        "switch": "S"
+        "switch": "S",
+        "varistor": "varistor",
+        "fuse": "fuse",
+        "capacitor-polarized": "CP",
+        "motor": "motor",
+        "current_source": "I",
+        "diode-zenor": "ZD",
+        "crossover": "X",
+        "terminal-pos": "VIN",
+        "terminal-neg": "VOUT",
+        "thyristor": "THYR",
+        "not": "NOT",
+        "or": "OR",
+        "and": "AND",
+        "nor": "NOR",
+        "nand": "NAND",
+        "xor": "XOR",
+        "opAmp": "opAmp",
+        "resistor-photo": "RP",         
+        "transistor": "Q",           
+        "microphone": "MIC",             
+        "transistor-photo": "QP",        
+        "transistor-PNP": "Qp",          
+        "speaker": "SPK",                
+        "transformer": "T",              
+        "diode-light_emitting": "LED",   
+        "triac": "TRIAC",                
+        "diac": "DIAC",  
+        "ground": "gnd"
 };
 
 const GRID_SIZE = 10;  // make sure it aligns with component dimensions
@@ -102,10 +130,6 @@ export const Sandbox3 = forwardRef(({
 
     // Placing new components
     function handleClick(e) {
-
-        console.log("***EVERYTHING PLACED UPDATE***");
-        console.log("ComponentIds and Wires: ", componentIds, wires);
-        console.log("***END***");
               
         const rect = e.currentTarget.getBoundingClientRect();
 
@@ -116,7 +140,6 @@ export const Sandbox3 = forwardRef(({
   
       const mouseWorldX = (rawX - pan.x) / zoom;
       const mouseWorldY = (rawY - pan.y) / zoom;
-
       
         const wireCoords = activeComponent === "wire" 
         ? { x1: mouseWorldX, y1: mouseWorldY }
@@ -152,12 +175,6 @@ export const Sandbox3 = forwardRef(({
           ...prev,
           [typeAbbrev]: nextNum + 1,
         }));
-        
-        console.log("***COMPONENT ADDED***")
-        console.log("Adding component with ID:", newId);
-        console.log("Coords: ", placeX, placeY)
-        console.log("Snap Points: ", calcSnapPoints)
-        console.log("***END***")
 
         pushUndoState();
         

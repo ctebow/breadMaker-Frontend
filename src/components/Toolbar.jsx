@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react"
-import { MenuButton, UploadButton, HelpButton, ComponentIcon, InfoButton} from "./IconButton.jsx"
+import { useState, useEffect, act } from "react"
+import { ComponentIcon, InfoButton, ComponentsButton, UploadButton} from "./IconButton.jsx"
 import { KEY_BINDINGS } from "../utils/constants.js";
+import ANDImg from "../assets/AND.svg";
+import thyristorImg from "../assets/thyristor.svg";
 
 export function ToolBar({
      buttons, 
@@ -16,10 +18,14 @@ export function ToolBar({
      componentIds,
      handleUndo,
      handleRedo,
+     selectedFile,
+     setSelectedFile,
+     handleUploadClick,
      mousePos }) {
 
     const [undoDisabled, setUndoDisabled] = useState(false);
     const [redoDisabled, setRedoDisabled] = useState(false);
+    const [activeInfoButton, setActiveInfoButton] = useState(null);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -62,7 +68,7 @@ export function ToolBar({
         <div className="relative">
           {/* Mouse position display at top-left, small and subtle */}
           <div className="text-xs text-gray-600 pl-2 pt-2 select-none">
-            X: {mousePos.x} Y: {mousePos.y}
+            X: {mousePos.x} Y: {mousePos.y} {activeComponent ? `Component: ${activeComponent}` : ""}
           </div>
       
           {/* Toolbar container */}
@@ -70,7 +76,8 @@ export function ToolBar({
       
             {/* Left side: component icons */}
             <div className="flex space-x-2">
-              {buttons.map(({ img, type }, index) => (
+              {buttons.map(({ img, type, main }, index) => 
+                main === true ? (
                 <ComponentIcon
                   key={index}
                   img={img}
@@ -84,7 +91,25 @@ export function ToolBar({
                     });
                   }}
                 />
-              ))}
+              ) : null)}
+              <ComponentsButton
+                buttons={buttons}
+                activeComponent={activeComponent}
+                setActiveComponent={setActiveComponent}
+                setFloatingIcon={setFloatingIcon}
+                info={{symbol: ANDImg, hover: "logic", main: "logic", width: 75}}
+                activeButton={activeInfoButton}
+                setActiveButton={setActiveInfoButton}
+              />
+              <ComponentsButton
+                buttons={buttons}
+                activeComponent={activeComponent}
+                setActiveComponent={setActiveComponent}
+                setFloatingIcon={setFloatingIcon}
+                info={{symbol: thyristorImg, hover: "more", main: false, width: 400}}
+                activeButton={activeInfoButton}
+                setActiveButton={setActiveInfoButton}
+              />
                <InfoButton
                 connections={connections}
                 setConnections={setConnections}
@@ -92,12 +117,18 @@ export function ToolBar({
                 simplifyConnectionsGraph={simplifyConnectionsGraph}
                 wires={wires}
                 componentIds={componentIds}
+                activeButton={activeInfoButton}
+                setActiveButton={setActiveInfoButton}
               />
             </div>
       
             {/* Right side: Undo, Redo, InfoButton, and title */}
             <div className="flex items-center space-x-4">
-      
+              <UploadButton
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              handleUploadClick={handleUploadClick}
+              />
               <button
                 onClick={onUndoClick}
                 disabled={undoDisabled}

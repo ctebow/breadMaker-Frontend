@@ -3,10 +3,11 @@ import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { HelpPopup } from "./components/IconButton.jsx";
 import { ToolBar } from "./components/Toolbar.jsx";
-import { Sandbox3} from "./components/Sandbox.jsx";
+import { Sandbox3 } from "./components/Sandbox.jsx";
 import { FloatingIcon } from "./components/FloatingIcon.jsx";
 import { PropertyEditor } from "./components/PropertyEditor.jsx";
 import { getConnectionsGraph, simplifyConnectionsGraph } from "./utils/connectionUtils.js";
+import { sendImageAndData } from "./api.js"
 import resistorImg from "./assets/resistor.svg";
 import capacitorImg from "./assets/capacitor.svg";
 import inductorImg from "./assets/inductor2.svg";
@@ -15,17 +16,73 @@ import acVoltageImg from "./assets/voltage-ac.svg";
 import diodeImg from "./assets/diode.svg";
 import wireImg from "./assets/wire.png";
 import switchImg from "./assets/switch.svg";
+import varistorImg from "./assets/varistor.svg";
+import capacitorPolarizedImg from "./assets/capacitor-polarized.svg";
+import fuseImg from "./assets/fuse.svg";
+import currentSourceImg from "./assets/current-source.svg";
+import motorImg from "./assets/motor.svg";
+import diodeZenorImg from "./assets/diode-zenor.svg";
+import crossoverImg from "./assets/crossover.svg";
+import terminalPosImg from "./assets/terminal-pos.svg";
+import terminalNegImg from "./assets/terminal-neg.svg";
+import thyristorImg from "./assets/thyristor.svg";
+import NOTImg from "./assets/NOT.svg";
+import ORImg from "./assets/OR.svg";
+import ANDImg from "./assets/AND.svg";
+import NORImg from "./assets/NOR.svg";
+import NANDImg from "./assets/NAND.svg";
+import XORImg from "./assets/XOR.svg";
+import opAmpImg from "./assets/op_amp.svg";
+import resistorPhotoImg from "./assets/resistor-photo.svg";
+import transistorNPNImg from "./assets/transistor-NPN.svg";
+import microphoneImg from "./assets/microphone.svg";
+import transistorPhotoImg from "./assets/transistor-photo.svg";
+import transistorPNPImg from "./assets/transistor-PNP.svg";
+import speakerImg from "./assets/speaker.svg";
+import triacImg from "./assets/triac.svg";
+import diacImg from "./assets/diac.svg";
+import transformerImg from "./assets/transformer.svg";
+import diodeLightEmittingImg from "./assets/diode-light_emitting.svg";
+import groundImg from "./assets/ground.svg";
 
 const BUTTONS = [
-    {img: resistorImg, type: "resistor"},
-    {img: capacitorImg, type: "capacitor"},
-    {img: inductorImg, type: "inductor"},
-    {img: dcVoltageImg, type: "voltage-dc"},
-    {img: acVoltageImg, type: "voltage-ac"},
-    {img: diodeImg, type: "diode"},
-    {img: wireImg, type: "wire"},
-    {img: switchImg, type: "switch"}
-]
+    {img: resistorImg, type: "resistor", main: true},
+    {img: capacitorImg, type: "capacitor", main: true},
+    {img: inductorImg, type: "inductor", main: true},
+    {img: dcVoltageImg, type: "voltage-dc", main: true},
+    {img: acVoltageImg, type: "voltage-ac", main: true},
+    {img: diodeImg, type: "diode", main: true},
+    {img: wireImg, type: "wire", main: true},
+    {img: switchImg, type: "switch", main: true},
+    {img: varistorImg, type: "varistor", main: false},
+    {img: capacitorPolarizedImg, type: "capacitor-polarized", main: false},
+    {img: fuseImg, type: "fuse", main: false},
+    {img: currentSourceImg, type: "current_source", main: false},
+    {img: motorImg, type: "motor", main: false},
+    {img: diodeZenorImg, type: "diode-zenor", main: false},
+    {img: crossoverImg, type: "crossover", main: false},
+    {img: terminalNegImg, type: "terminal-neg", main: false},
+    {img: terminalPosImg, type: "terminal-pos", main: false},
+    {img: thyristorImg, type: "thyristor", main: false},
+    {img: opAmpImg, type: "opAmp", main: false},
+    {img: resistorPhotoImg, type: "resistor-photo", main: false},
+    {img: transistorNPNImg, type: "transistor", main: false},
+    {img: microphoneImg, type: "microphone", main: false},
+    {img: transistorPhotoImg, type: "transistor-photo", main: false},
+    {img: transistorPNPImg, type: "transistor-PNP", main: false},
+    {img: speakerImg, type: "speaker", main: false},
+    {img: transformerImg, type: "transformer", main: false},
+    {img: diodeLightEmittingImg, type: "diode-light_emitting", main: false},
+    {img: triacImg, type: "triac", main: false},
+    {img: diacImg, type: "diac", main: false},
+    {img: NOTImg, type: "not", main: "logic"},
+    {img: ANDImg, type: "and", main: "logic"},
+    {img: NORImg, type: "nor", main: "logic"},
+    {img: NANDImg, type: "nand", main: "logic"},
+    {img: ORImg, type: "or", main: "logic"},
+    {img: XORImg, type: "xor", main: "logic"},
+    {img: groundImg, type: "ground", main: true}
+];
 
 export default function App() {
 
@@ -44,6 +101,8 @@ export default function App() {
     const [floatingRotation, setFloatingRotation] = useState(0);
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [mlComponents, setMlComponents] = useState({});
 
     // global wires
     const [wires, setWires] = useState([]); // Store wires as {x1, y1, x2, y2}
@@ -70,6 +129,21 @@ export default function App() {
     }
     return cloned;
     }
+
+    const handleUploadClick = async () => {
+        const detectionResult = await sendImageAndData(selectedFile, componentIds);
+        console.log("API Gave me: ", detectionResult)
+        setMlComponents((prev) => detectionResult);
+        setComponentIds((prev) => ({
+            ...prev,
+            ...detectionResult.components
+        }))
+        setWires((prev) => ([
+            ...prev,
+            ...detectionResult.lines
+        ]))
+    };
+
     // undo/redo handlers
     const pushUndoState = () => {
         undoStack.current.push({
@@ -153,6 +227,9 @@ export default function App() {
             componentIds={componentIds}
             handleUndo={handleUndo}
             handleRedo={handleRedo}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            handleUploadClick={handleUploadClick}
           />
       
             <Sandbox3
