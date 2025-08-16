@@ -1,6 +1,5 @@
 // Assist in making a connections graph. 
 
-  // ok new bts connection logic, hopefully this is better with a more structured approach:
   function isSamePoint(p1x, p1y, p2x, p2y) {
     return p1x === p2x && p1y === p2y;
   }
@@ -198,9 +197,7 @@
 
   export function getConnectionsGraph(wires, componentIds) {
     const connectedWires = mergeCornerWiresFully(wires, componentIds);
-    console.log("Wires I calcuated", connectedWires)
     const nodes = getNodes(connectedWires, componentIds);
-    console.log("Nodes I calculated", nodes)
   
     const coordKey = (x, y) => `${x},${y}`;
   
@@ -346,7 +343,6 @@ function snapToGrid(value, size = GRID_SIZE) {
   return Math.round(value / size) * size;
 }
   
-
   
   function wireOnAnother(wire1, wire2) {
     wire1 = normalize(wire1);
@@ -395,6 +391,8 @@ function mergeParallelWires(wires) {
                     const a = getWireAlignment(merged[i]);
                     const wireA = normalize(merged[i]);
                     const wireB = normalize(merged[j]);
+
+
                     let newWire;
                     if (a === "x") {
                     newWire = {
@@ -429,162 +427,6 @@ function mergeParallelWires(wires) {
 }
 
 function splitWiresAtComponents(wires, componentIds) {
-
-    const result = [];
-  
-    // Helper: check if a point lies between endpoints of a straight wire
-    function isPointOnWire(point, wire) {
-      const snappedX = snapToGrid(point.x);
-      const snappedY = snapToGrid(point.y);
-      const w = normalize(wire);
-  
-      // Horizontal
-      if (w.y1 === w.y2 && snappedY === w.y1) {
-        return snappedX > Math.min(w.x1, w.x2) &&
-               snappedX < Math.max(w.x1, w.x2);
-      }
-      // Vertical
-      if (w.x1 === w.x2 && snappedX === w.x1) {
-        return snappedY > Math.min(w.y1, w.y2) &&
-               snappedY < Math.max(w.y1, w.y2);
-      }
-      return false;
-    }
-  
-    for (const wire of wires) {
-      const splitPoints = [];
-  
-      // Check every component snap point
-      for (const comp of Object.values(componentIds)) {
-        if (!comp.snapPoints) continue;
-        for (const sp of comp.snapPoints) {
-          if (isPointOnWire(sp, wire)) {
-            splitPoints.push({
-              x: snapToGrid(sp.x),
-              y: snapToGrid(sp.y)
-            });
-          }
-        }
-      }
-  
-      if (splitPoints.length === 0) {
-        // No splits → keep original wire
-        result.push(wire);
-        continue;
-      }
-  
-      // Sort split points along wire axis
-      const normWire = normalize(wire);
-      if (normWire.y1 === normWire.y2) {
-        // Horizontal
-        splitPoints.sort((a, b) => a.x - b.x);
-      } else {
-        // Vertical
-        splitPoints.sort((a, b) => a.y - b.y);
-      }
-  
-      // Build new wire segments
-      let lastPoint = { x: normWire.x1, y: normWire.y1 };
-      for (const sp of splitPoints) {
-        result.push({
-          x1: lastPoint.x,
-          y1: lastPoint.y,
-          x2: sp.x,
-          y2: sp.y,
-          x3: snapToGrid((lastPoint.x + sp.x) / 2),
-          y3: snapToGrid((lastPoint.y + sp.y) / 2),
-        });
-        lastPoint = sp;
-      }
-      // Final segment to original end
-      result.push({
-        x1: lastPoint.x,
-        y1: lastPoint.y,
-        x2: normWire.x2,
-        y2: normWire.y2,
-        x3: snapToGrid((lastPoint.x + normWire.x2) / 2),
-        y3: snapToGrid((lastPoint.y + normWire.y2) / 2),
-      });
-    }
-  
-    return result;
-  }
-
-  function splitWiresAtComponents2(wires, components) {
-    let newWires = [...wires];
-
-    // Helper to check if a point lies exactly on a wire segment
-    function pointOnWire(px, py, wire) {
-        const { x1, y1, x2, y2 } = wire;
-        const minX = Math.min(x1, x2);
-        const maxX = Math.max(x1, x2);
-        const minY = Math.min(y1, y2);
-        const maxY = Math.max(y1, y2);
-        const isCollinear = (x2 - x1) * (py - y1) === (y2 - y1) * (px - x1);
-        const inBounds = px >= minX && px <= maxX && py >= minY && py <= maxY;
-        return isCollinear && inBounds;
-    }
-
-    // === 1) Original: split wires at component snap points ===
-    Object.values(components).forEach(component => {
-        const snapPoints = component.snapPoints || [];
-        snapPoints.forEach(point => {
-            const { x, y } = point;
-            const updatedWires = [];
-            newWires.forEach(wire => {
-                if (
-                    (x === wire.x1 && y === wire.y1) ||
-                    (x === wire.x2 && y === wire.y2)
-                ) {
-                    updatedWires.push(wire);
-                    return;
-                }
-                if (pointOnWire(x, y, wire)) {
-                    updatedWires.push(
-                        { x1: wire.x1, y1: wire.y1, x2: x, y2: y },
-                        { x1: x, y1: y, x2: wire.x2, y2: wire.y2 }
-                    );
-                } else {
-                    updatedWires.push(wire);
-                }
-            });
-            newWires = updatedWires;
-        });
-    });
-
-    // === 2) New: split wires if another wire's endpoint lies along them ===
-    const allEndpoints = [];
-    newWires.forEach(wire => {
-        allEndpoints.push({ x: wire.x1, y: wire.y1 });
-        allEndpoints.push({ x: wire.x2, y: wire.y2 });
-    });
-
-    allEndpoints.forEach(({ x, y }) => {
-        const updatedWires = [];
-        newWires.forEach(wire => {
-            if (
-                (x === wire.x1 && y === wire.y1) ||
-                (x === wire.x2 && y === wire.y2)
-            ) {
-                updatedWires.push(wire);
-                return;
-            }
-            if (pointOnWire(x, y, wire)) {
-                updatedWires.push(
-                    { x1: wire.x1, y1: wire.y1, x2: x, y2: y },
-                    { x1: x, y1: y, x2: wire.x2, y2: wire.y2 }
-                );
-            } else {
-                updatedWires.push(wire);
-            }
-        });
-        newWires = updatedWires;
-    });
-
-    return newWires;
-}
-
-function splitWiresAtComponents3(wires, componentIds) {
     const result = [];
   
     // Helper: check if a point lies between endpoints of a straight wire
@@ -736,10 +578,94 @@ function splitWiresAtMidpoints(wires, componentIds) {
     return result;
   }
 
+
+function wiresIntersect(wire1, wire2) {
+    const align1 = getWireAlignment(wire1);
+    const align2 = getWireAlignment(wire2);
+    if (align1 === align2) return false;
+    if (align1 === "x") {
+        if (wire2.x1 > wire1.x1 && wire2.x2 < wire1.x2) return true;
+    } else if (align2 === "x") {
+        if (wire1.x1 > wire2.x1 && wire1.x2 < wire2.x2) return true;
+    } else return false;
+};
+
+function getIntersectionPoint(wire1, wire2) {
+    const align1 = getWireAlignment(wire1);
+    const align2 = getWireAlignment(wire2);
+    if (align1 === align2) return null;
+    if (!wiresIntersect(wire1, wire2)) return null;
+    if (align1 === "x") {
+        return {x: wire2.x1, y: wire1.y1};
+    } else if (align2 === "x") {
+        return {x: wire1.x1, y: wire2.y1};
+    }
+};
+
+function splitWireAtPoint(wire, intersection) {
+    return [
+      {
+        x1: wire.x1,
+        y1: wire.y1,
+        x2: intersection.x,
+        y2: intersection.y,
+        x3: snapToGrid((wire.x1 + intersection.x) / 2),
+        y3: snapToGrid((wire.y1 + intersection.y) / 2),
+      },
+      {
+        x1: wire.x2,
+        y1: wire.y2,
+        x2: intersection.x,
+        y2: intersection.y,
+        x3: snapToGrid((wire.x2 + intersection.x) / 2),
+        y3: snapToGrid((wire.y2 + intersection.y) / 2),
+      },
+    ];
+  }
+
+  function splitWiresAtIntersection(wires) {
+    const result = [];
+    const processed = new Set();
+  
+    for (let i = 0; i < wires.length; i++) {
+      if (processed.has(i)) continue;
+      const wire1 = normalize(wires[i]);
+      let wasSplit = false;
+  
+      for (let j = i + 1; j < wires.length; j++) {
+        if (processed.has(j)) continue;
+        const wire2 = normalize(wires[j]);
+  
+        const intersection = getIntersectionPoint(wire1, wire2);
+        if (intersection) {
+          // only split if intersection is inside both wires, not just touching an endpoint
+          const isInside = (pt, w) =>
+            (pt.x > Math.min(w.x1, w.x2) && pt.x < Math.max(w.x1, w.x2)) ||
+            (pt.y > Math.min(w.y1, w.y2) && pt.y < Math.max(w.y1, w.y2));
+  
+          if (isInside(intersection, wire1) && isInside(intersection, wire2)) {
+            result.push(...splitWireAtPoint(wire1, intersection));
+            result.push(...splitWireAtPoint(wire2, intersection));
+            processed.add(i);
+            processed.add(j);
+            wasSplit = true;
+          }
+        }
+      }
+  
+      if (!wasSplit) {
+        result.push(wire1);
+      }
+    }
+  
+    return result;
+  }
+
   export function processWires(wires, componentIds) {
     const merged = mergeParallelWires(wires);
-    const compSplit = splitWiresAtComponents3(merged, componentIds);
-    const split = splitWiresAtMidpoints(compSplit, componentIds);
+    const compSplit = splitWiresAtComponents(merged, componentIds);
+    const intersect = splitWiresAtIntersection(compSplit)
+    const split = splitWiresAtMidpoints(intersect, componentIds);
     return split;
 }
   

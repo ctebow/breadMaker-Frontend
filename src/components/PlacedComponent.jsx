@@ -4,6 +4,7 @@ export const PlacedComponent = React.memo(function PlacedComponent({
   compInfo,
   selectedId,
   setSelectedId,
+  activeComponent,
   onMouseDown,
   isSnappedToWire,
 }) {
@@ -12,7 +13,7 @@ export const PlacedComponent = React.memo(function PlacedComponent({
 
   return (
     <div
-      onClick={(e) => {
+      onClick={activeComponent === "wire" ? undefined: (e) => {
         e.stopPropagation();
         setSelectedId(compInfo.id);
       }}
@@ -22,11 +23,12 @@ export const PlacedComponent = React.memo(function PlacedComponent({
         left: compInfo.xPos,
         top: compInfo.yPos,
         transform: `translate(-50%, -50%) rotate(${compInfo.rotation || 0}deg)`,
-        willChange: "transform"
+        willChange: "transform",
+        pointerEvents: activeComponent === "wire" ? "none" : "auto"
       }}
       className={`absolute ${
         isSelected ? "outline outline-2 outline-gray-500" : ""
-      } ${isSnappedToWire ? "outline outline-2 outline-blue-500" : ""} hover:outline hover:outline-2 hover:outline-gray-400 transition-all duration-200`}
+      } ${isSnappedToWire ? "outline outline-2 outline-blue-500" : ""} ${activeComponent !== "wire" ? "hover:outline hover:outline-2 hover:outline-gray-400 transition-all duration-200" : ""}`}
     >
       <img
         src={compInfo.image}
@@ -55,7 +57,8 @@ function areEqual(prev, next) {
     prev.compInfo.xPos === next.compInfo.xPos &&
     prev.compInfo.yPos === next.compInfo.yPos &&
     prev.compInfo.rotation === next.compInfo.rotation &&
-    prev.selectedId === next.selectedId
+    prev.selectedId === next.selectedId &&
+    prev.activeComponent === next.activeComponent
   );
 }
 

@@ -596,6 +596,7 @@ export const Sandbox3 = forwardRef(({
         compInfo={compInfo}
         selectedId={selectedId}
         setSelectedId={setSelectedId}
+        activeComponent={activeComponent}
         onMouseDown={(e) => handleComponentMouseDown(e, compInfo)}
         isDraggingComponent={draggingId === id && isComponentDragging}
         isSnappedToWire={checkIsWireConnected(compInfo)}
